@@ -1,0 +1,7 @@
+# Ignore native platform folders from language statistics to correctly show Dart
+android/**/* linguist-detectable=false
+ios/**/* linguist-detectable=false
+windows/**/* linguist-detectable=false
+linux/**/* linguist-detectable=false
+macos/**/* linguist-detectable=false
+web/**/* linguist-detectable=false
