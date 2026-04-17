@@ -7,11 +7,16 @@ class SettingsService {
   static const String _keyDndEndHour = 'dnd_end_hour';
   static const String _keyExcludeWeekends = 'exclude_weekends';
   static const String _keySelectedSound = 'selected_sound';
+  static const String _keyVolume = 'volume';
 
   late SharedPreferences _prefs;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  Future<void> reload() async {
+    await _prefs.reload();
   }
 
   bool get chimeEnabled => _prefs.getBool(_keyChimeEnabled) ?? true;
@@ -31,4 +36,7 @@ class SettingsService {
 
   String get selectedSound => _prefs.getString(_keySelectedSound) ?? 'default_chime.mp3';
   Future<void> setSelectedSound(String value) => _prefs.setString(_keySelectedSound, value);
+
+  double get volume => _prefs.getDouble(_keyVolume) ?? 1.0;
+  Future<void> setVolume(double value) => _prefs.setDouble(_keyVolume, value);
 }

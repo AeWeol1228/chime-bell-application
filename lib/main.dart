@@ -15,10 +15,15 @@ Future<void> alarmCallback() async {
   try {
     final settings = SettingsService();
     await settings.init();
-
-    if (!settings.chimeEnabled) return;
+    await settings.reload(); // Force reload to get latest values from disk
+    
+    if (!settings.chimeEnabled) {
+      print('[ChimeBell] Chime is disabled. Skipping.');
+      return;
+    }
 
     final now = DateTime.now();
+    print('[ChimeBell] Current Time: $now, Target Volume: ${settings.volume}');
     if (settings.excludeWeekends) {
       if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) return;
     }
@@ -32,8 +37,21 @@ Future<void> alarmCallback() async {
     }
 
     final player = AudioPlayer();
+
+    // Set Audio Context for "Ducking" (lower other app volumes instead of pausing)
+    // Updated for audioplayers 5.2.1
+    await AudioPlayer.global.setAudioContext(const AudioContext(
+      android: AudioContextAndroid(
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.alarm,
+        audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+      ),
+      iOS: AudioContextIOS(),
+    ));
+
+    await player.setVolume(settings.volume);
     await player.play(AssetSource('sounds/${settings.selectedSound}'));
-    print('[ChimeBell] Sound played successfully in background');
+    print('[ChimeBell] Sound played successfully in background with volume: ${settings.volume}');
   } catch (e) {
     print('[ChimeBell] Error in background callback: $e');
   }

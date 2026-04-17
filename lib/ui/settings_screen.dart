@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart'; // Add this
 import '../services/settings_service.dart';
 import '../services/alarm_service.dart';
+import '../build_info.dart';
+import 'debug_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsService settings;
@@ -17,9 +20,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _dndStart;
   late int _dndEnd;
   late bool _excludeWeekends;
+  late double _volume;
+  int _debugTapCount = 0;
+  final AudioPlayer _previewPlayer = AudioPlayer(); // For volume preview
 
   // Manual Build ID for user verification
-  final String _buildID = "Build: 2026-04-15 21:30 (Final Fixed)";
+  final String _buildID = "Build: ${BuildInfo.buildTime} (Final Fixed)";
 
   @override
   void initState() {
@@ -29,19 +35,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dndStart = widget.settings.dndStartHour;
     _dndEnd = widget.settings.dndEndHour;
     _excludeWeekends = widget.settings.excludeWeekends;
+    _volume = widget.settings.volume;
+    
+    // Set preview player context to match alarm type
+    _previewPlayer.setAudioContext(const AudioContext(
+      android: AudioContextAndroid(
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.alarm,
+        audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+      ),
+    ));
+  }
 
-    // Show visual confirmation that the update was applied
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ Update Applied: $_buildID'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    });
+  @override
+  void dispose() {
+    _previewPlayer.dispose();
+    super.dispose();
+  }
+
+  void _playPreview(double vol) async {
+    await _previewPlayer.setVolume(vol);
+    if (_previewPlayer.state != PlayerState.playing) {
+      await _previewPlayer.play(AssetSource('sounds/${widget.settings.selectedSound}'));
+    }
   }
 
   void _updateAlarm() {
@@ -52,19 +68,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _handleDebugTap() {
+    setState(() {
+      _debugTapCount++;
+      if (_debugTapCount >= 7) {
+        _debugTapCount = 0;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DebugScreen()),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Chime Bell Settings')),
       body: ListView(
         children: [
-          Container(
-            color: Colors.green.shade50,
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              '$_buildID - OK',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+          GestureDetector(
+            onTap: _handleDebugTap,
+            child: Container(
+              color: Colors.green.shade50,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '$_buildID - OK',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           SwitchListTile(
@@ -123,27 +155,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           const Divider(),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await AlarmService.scheduleTestChime();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Test alarm scheduled for 1 minute from now.')),
-                  );
-                }
+          ListTile(
+            title: const Text('Chime Volume'),
+            subtitle: Slider(
+              value: _volume,
+              min: 0.0,
+              max: 1.0,
+              divisions: 20, // More granular
+              label: '${(_volume * 100).round()}%',
+              onChanged: (val) {
+                setState(() => _volume = val);
               },
-              icon: const Icon(Icons.timer),
-              label: const Text('Test 1 Minute Alarm (Debug)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade100,
-                foregroundColor: Colors.orange.shade900,
-              ),
+              onChangeEnd: (val) { // Play sound only when user stops dragging
+                widget.settings.setVolume(val);
+                _playPreview(val);
+              },
             ),
+            trailing: Text('${(_volume * 100).round()}%'),
           ),
+          const Divider(),
         ],
       ),
     );
   }
 }
+
