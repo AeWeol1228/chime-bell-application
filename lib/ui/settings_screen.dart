@@ -18,6 +18,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _dndEnd;
   late bool _excludeWeekends;
 
+  // Manual Build ID for user verification
+  final String _buildID = "Build: 2026-04-15 21:30 (Final Fixed)";
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +29,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dndStart = widget.settings.dndStartHour;
     _dndEnd = widget.settings.dndEndHour;
     _excludeWeekends = widget.settings.excludeWeekends;
+
+    // Show visual confirmation that the update was applied
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Update Applied: $_buildID'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
   }
 
   void _updateAlarm() {
@@ -42,6 +58,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('Chime Bell Settings')),
       body: ListView(
         children: [
+          Container(
+            color: Colors.green.shade50,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '$_buildID - OK',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+            ),
+          ),
           SwitchListTile(
             title: const Text('Enable Hourly Chime'),
             value: _chimeEnabled,
@@ -96,6 +121,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() => _excludeWeekends = val);
               widget.settings.setExcludeWeekends(val);
             },
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await AlarmService.scheduleTestChime();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Test alarm scheduled for 1 minute from now.')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.timer),
+              label: const Text('Test 1 Minute Alarm (Debug)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade100,
+                foregroundColor: Colors.orange.shade900,
+              ),
+            ),
           ),
         ],
       ),
