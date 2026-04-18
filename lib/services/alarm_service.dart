@@ -1,5 +1,5 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import '../main.dart'; // Import to use alarmCallback from main.dart
+import 'background_service.dart';
 
 class AlarmService {
   static const int _alarmId = 0;
@@ -8,17 +8,18 @@ class AlarmService {
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = await AndroidAlarmManager.initialize();
-    print('[ChimeBell] AndroidAlarmManager initialized: $_initialized');
+    print('[ChimeBell] AlarmService initialized: $_initialized');
   }
 
   static Future<void> scheduleChime() async {
     final now = DateTime.now();
+    // Schedule for the next full hour
     final nextHour = DateTime(now.year, now.month, now.day, now.hour + 1);
 
     await AndroidAlarmManager.periodic(
       const Duration(hours: 1),
       _alarmId,
-      alarmCallback, // References the top-level function in main.dart
+      BackgroundService.alarmCallback,
       startAt: nextHour,
       exact: true,
       wakeup: true,
@@ -38,7 +39,7 @@ class AlarmService {
     await AndroidAlarmManager.oneShot(
       const Duration(minutes: 1),
       testId,
-      alarmCallback, // References the top-level function in main.dart
+      BackgroundService.alarmCallback,
       exact: true,
       wakeup: true,
     );

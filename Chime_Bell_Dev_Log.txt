@@ -1,0 +1,65 @@
+[Chime Bell App 개발 일지 - 2026.04.15]
+
+1. 프로젝트 개요
+- 기능: 매 정시마다 사용자가 설정한 소리를 재생하는 백그라운드 알람 서비스
+- 주요 기술 스택: Flutter, android_alarm_manager_plus, audioplayers, shared_preferences
+
+2. 아키텍처 (Architecture)
+- UI Layer: Flutter 기반의 설정 화면 (DND 설정, 주말 제외, 소리 선택 등)
+- Service Layer:
+  * SettingsService: SharedPreferences를 활용한 사용자 설정 데이터 유지 관리
+  * AlarmService: Android 시스템의 AlarmManager와 Dart Isolate를 연결하는 브릿지 역할
+- Background Layer: 앱이 종료되거나 백그라운드에 있을 때 실행되는 독립적인 Dart Isolate
+
+3. 워크플로우 (Workflow)
+- [설정] 사용자가 앱에서 알람을 활성화함
+- [예약] AlarmService가 Android 시스템의 AlarmManager에 정시 알람을 등록
+- [트리거] 정시가 되면 Android OS가 앱의 AlarmService(Native)를 호출
+- [Isolate 실행] Native 서비스가 새로운 Dart Isolate를 생성하고 main.dart에 정의된 'alarmCallback' 함수를 실행
+- [조건 체크] alarmCallback 내에서 현재 시간, DND 모드 활성화 여부, 주말 제외 설정을 체크
+- [재생] 모든 조건을 만족하면 오디오 파일을 로드하여 재생
+
+4. 주요 에러 및 해결 과정 (Troubleshooting)
+
+(1) 문제: 백그라운드에서 alarmCallback 함수를 찾지 못함
+- 원인: Flutter의 트리셰이킹(Tree Shaking) 과정에서 백그라운드 함수가 제거되거나, Native 영역에서 접근할 수 없는 위치(클래스 내부)에 있었음.
+- 해결: alarmCallback을 main.dart의 최상단(Top-level)으로 옮기고, @pragma('vm:entry-point') 어노테이션을 추가하여 Native 영역에서의 가시성을 확보함.
+
+(2) 문제: RebootBroadcastReceiver 관련 PlatformException 발생
+- 원인: android_alarm_manager_plus 패키지 버전이 업데이트되면서 네이티브 클래스 패키지 경로가 변경됨 (android_alarm_manager_plus -> androidalarmmanager).
+- 해결: AndroidManifest.xml에 등록된 AlarmService, AlarmBroadcastReceiver, RebootBroadcastReceiver의 android:name 경로를 실제 플러그인 구조에 맞게 수정함.
+
+(3) 문제: Attempted to start a duplicate background isolate 경고
+- 원인: 앱이 포그라운드에 있는 상태에서 알람이 울릴 경우, 이미 초기화된 AndroidAlarmManager를 다시 초기화하려고 시도하면서 충돌 발생.
+- 해결: AlarmService 클래스 내부에 _initialized 플래그를 도입하여, 이미 초기화된 경우 initialize() 호출을 건너뛰도록 방어 로직을 구현함.
+
+5. 현재 상태
+- 앱이 켜져 있거나 완전히 종료된 상태(Cold Boot) 모두에서 정시 알람이 정상적으로 작동함을 확인 완료.
+- 정시 알람 예약 및 1분 테스트 알람 기능 정상 작동.
+
+---
+
+[Chime Bell App 개발 일지 - 2026.04.18]
+
+1. 대규모 리팩토링 및 코드 정리 (Codebase Cleanup)
+- 목적: 확장성과 유지보수성을 높이기 위해 스파게티 코드를 정리하고 아키텍처를 개선함.
+
+2. 주요 변경 사항
+(1) 아키텍처 개선 (Architecture Refactoring)
+- Background Logic 분리: main.dart에 비대하게 구현되어 있던 'alarmCallback' 및 백그라운드 체크 로직을 'services/background_service.dart'로 완전 분리. main.dart는 앱 초기화와 기본 구조만 담당하도록 슬림화.
+- Singleton Pattern 도입: 'SettingsService'를 싱글톤 패턴으로 변경하여 앱 전체에서 일관된 설정 데이터에 접근할 수 있도록 개선하고 불필요한 인스턴스 생성을 방지.
+- 서비스와 UI의 명확한 분리: 비즈니스 로직(AlarmService, SettingsService)과 UI(SettingsScreen, DebugScreen)를 각각의 디렉토리로 구조화하여 가독성 향상.
+
+(2) UI/UX 고도화
+- 디자인 개선: SettingsScreen을 섹션별(General, DND, Schedule, Volume)로 그룹화하고 각 항목에 아이콘을 추가하여 시각적 직관성 부여.
+- 다크 모드(Dark Mode) 지원: 시스템 설정에 따라 라이트 모드와 다크 모드가 자동으로 전환되도록 테마 설정 추가.
+- 디버그 메뉴 개선: 개발자용 진단 도구를 더 깔끔한 카드 형태로 정리하고 알람 취소 기능을 추가.
+
+(3) 코드 품질 및 안정성
+- 불필요한 파라미터 전달 제거: SettingsService 싱글톤화에 따라 위젯 트리 상단에서 하단으로 서비스를 전달하던 보일러플레이트 코드 제거.
+- 빌드 시스템 자동화: 'build.ps1' 스크립트를 통해 빌드 시간 업데이트와 APK 생성을 한 번에 처리하도록 구성.
+
+3. 결과 및 확인
+- 리팩토링 후 모든 기능(정시 알람, DND, 주말 제외, 볼륨 설정 등)이 정상 작동함을 확인.
+- physical device (SM A908N)에 릴리즈 모드로 성공적으로 빌드 및 배포 완료.
+- 앱 구조가 훨씬 명확해졌으며 향후 새로운 기능 추가가 용이해짐.
