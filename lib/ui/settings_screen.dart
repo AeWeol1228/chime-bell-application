@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/settings_service.dart';
 import '../services/alarm_service.dart';
 import '../build_info.dart';
@@ -20,7 +21,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _dndStart;
   late int _dndEnd;
   late bool _excludeWeekends;
+  late bool _allowWhileIdle;
   late double _volume;
+  bool _isBatteryOptimized = true;
   int _debugTapCount = 0;
   final AudioPlayer _previewPlayer = AudioPlayer();
 
@@ -28,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _checkBatteryOptimization();
     
     _previewPlayer.setAudioContext(const AudioContext(
       android: AudioContextAndroid(
@@ -44,7 +48,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dndStart = widget.settings.dndStartHour;
     _dndEnd = widget.settings.dndEndHour;
     _excludeWeekends = widget.settings.excludeWeekends;
+    _allowWhileIdle = widget.settings.allowWhileIdle;
     _volume = widget.settings.volume;
+  }
+
+  Future<void> _checkBatteryOptimization() async {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    setState(() {
+      _isBatteryOptimized = !status.isGranted;
+    });
   }
 
   @override
@@ -103,6 +115,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
               widget.settings.setChimeEnabled(val);
               _updateAlarm(val);
             },
+          ),
+          const Divider(),
+          _buildSectionTitle('Battery & Performance'),
+          SwitchListTile(
+            title: const Text('Exact Alarms in Doze Mode'),
+            subtitle: const Text('Ensure chime fires even when idle (uses more battery)'),
+            secondary: const Icon(Icons.bolt),
+            value: _allowWhileIdle,
+            onChanged: (val) {
+              setState(() => _allowWhileIdle = val);
+              widget.settings.setAllowWhileIdle(val);
+              if (_chimeEnabled) {
+                _updateAlarm(true); // Reschedule with new flag
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Battery Optimization'),
+            subtitle: Text(_isBatteryOptimized 
+                ? 'Currently Optimized (May delay chimes)' 
+                : 'Exempt from Optimization (Recommended)'),
+            leading: Icon(
+              _isBatteryOptimized ? Icons.battery_saver : Icons.battery_full,
+              color: _isBatteryOptimized ? Colors.orange : Colors.green,
+            ),
+            trailing: TextButton(
+              onPressed: () async {
+                if (_isBatteryOptimized) {
+                  await Permission.ignoreBatteryOptimizations.request();
+                } else {
+                  // Android doesn't allow un-requesting programmatically, 
+                  // but we can open settings
+                  await openAppSettings();
+                }
+                _checkBatteryOptimization();
+              },
+              child: Text(_isBatteryOptimized ? 'DISABLE' : 'SETTINGS'),
+            ),
           ),
           const Divider(),
           _buildSectionTitle('Do Not Disturb'),

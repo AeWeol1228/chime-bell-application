@@ -11,6 +11,7 @@ class SettingsService {
   static const String _keyDndStartHour = 'dnd_start_hour';
   static const String _keyDndEndHour = 'dnd_end_hour';
   static const String _keyExcludeWeekends = 'exclude_weekends';
+  static const String _keyAllowWhileIdle = 'allow_while_idle';
   static const String _keySelectedSound = 'selected_sound';
   static const String _keyVolume = 'volume';
 
@@ -44,6 +45,9 @@ class SettingsService {
 
   bool get excludeWeekends => _prefs.getBool(_keyExcludeWeekends) ?? false;
   Future<void> setExcludeWeekends(bool value) => _setBool(_keyExcludeWeekends, value);
+
+  bool get allowWhileIdle => _prefs.getBool(_keyAllowWhileIdle) ?? false;
+  Future<void> setAllowWhileIdle(bool value) => _setBool(_keyAllowWhileIdle, value);
 
   String get selectedSound => _prefs.getString(_keySelectedSound) ?? 'default_chime.mp3';
   Future<void> setSelectedSound(String value) => _setString(_keySelectedSound, value);

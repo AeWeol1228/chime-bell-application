@@ -1,5 +1,6 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'background_service.dart';
+import 'settings_service.dart';
 
 class AlarmService {
   static const int _alarmId = 0;
@@ -12,6 +13,9 @@ class AlarmService {
   }
 
   static Future<void> scheduleChime() async {
+    final settings = SettingsService();
+    await settings.init();
+    
     final now = DateTime.now();
     // Schedule for the next full hour
     final nextHour = DateTime(now.year, now.month, now.day, now.hour + 1);
@@ -23,6 +27,7 @@ class AlarmService {
       startAt: nextHour,
       exact: true,
       wakeup: true,
+      allowWhileIdle: settings.allowWhileIdle,
       rescheduleOnReboot: true,
     );
   }
@@ -32,6 +37,9 @@ class AlarmService {
   }
 
   static Future<void> scheduleTestChime() async {
+    final settings = SettingsService();
+    await settings.init();
+    
     const int testId = 1;
     final testTime = DateTime.now().add(const Duration(minutes: 1));
     print('[ChimeBell] Scheduling test alarm for: $testTime');
@@ -42,6 +50,7 @@ class AlarmService {
       BackgroundService.alarmCallback,
       exact: true,
       wakeup: true,
+      allowWhileIdle: settings.allowWhileIdle,
     );
   }
 }
