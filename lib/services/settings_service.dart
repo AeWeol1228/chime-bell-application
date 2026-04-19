@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsService {
@@ -14,6 +15,7 @@ class SettingsService {
   static const String _keyAllowWhileIdle = 'allow_while_idle';
   static const String _keySelectedSound = 'selected_sound';
   static const String _keyVolume = 'volume';
+  static const String _keyDebugLoggingEnabled = 'debug_logging_enabled';
 
   late SharedPreferences _prefs;
 
@@ -54,4 +56,21 @@ class SettingsService {
 
   double get volume => _prefs.getDouble(_keyVolume) ?? 1.0;
   Future<void> setVolume(double value) => _setDouble(_keyVolume, value);
+
+  bool get debugLoggingEnabled => _prefs.getBool(_keyDebugLoggingEnabled) ?? false;
+  Future<void> setDebugLoggingEnabled(bool value) => _setBool(_keyDebugLoggingEnabled, value);
+
+  Future<void> log(String message) async {
+    if (!debugLoggingEnabled) return;
+    try {
+      final directory = Directory.systemTemp;
+      final file = File('${directory.path}/execution_log.txt');
+      final now = DateTime.now();
+      final ts = '${now.month}/${now.day} ${now.hour}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond}';
+      await file.writeAsString('[$ts] $message\n', mode: FileMode.append, flush: true);
+      print('[ChimeBell Log] $message');
+    } catch (e) {
+      print('[ChimeBell] Log Error: $e');
+    }
+  }
 }

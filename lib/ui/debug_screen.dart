@@ -1,9 +1,81 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/alarm_service.dart';
+import '../services/settings_service.dart';
 import '../build_info.dart';
 
-class DebugScreen extends StatelessWidget {
+class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
+
+  @override
+  State<DebugScreen> createState() => _DebugScreenState();
+}
+
+class _DebugScreenState extends State<DebugScreen> {
+  final SettingsService _settings = SettingsService();
+  late bool _loggingEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _loggingEnabled = _settings.debugLoggingEnabled;
+  }
+
+  Future<void> _showLogDialog() async {
+    String logContent = 'Log file not found.';
+    try {
+      final file = File('${Directory.systemTemp.path}/execution_log.txt');
+      if (await file.exists()) {
+        logContent = await file.readAsString();
+      }
+    } catch (e) {
+      logContent = 'Error reading log: $e';
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Execution Log'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Text(
+              logContent.isEmpty ? 'Log is empty.' : logContent,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearLog() async {
+    try {
+      final file = File('${Directory.systemTemp.path}/execution_log.txt');
+      if (await file.exists()) {
+        await file.delete();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Log cleared.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to clear log: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +90,38 @@ class DebugScreen extends StatelessWidget {
           _buildDebugHeader(),
           const SizedBox(height: 24),
           _buildInfoCard('Build Version', BuildInfo.buildTime, Icons.info_outline),
+          const Divider(height: 32),
+          
+          const Text(
+            'Diagnostics & Logging',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text('Enable Execution Logging'),
+            subtitle: const Text('Logs the exact time the alarm fires to a file'),
+            value: _loggingEnabled,
+            onChanged: (val) {
+              setState(() => _loggingEnabled = val);
+              _settings.setDebugLoggingEnabled(val);
+            },
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.list_alt, size: 18),
+                label: const Text('View Log'),
+                onPressed: _showLogDialog,
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Clear Log'),
+                onPressed: _clearLog,
+              ),
+            ],
+          ),
+          
           const Divider(height: 32),
           const Text(
             'Manual Test Tools',

@@ -36,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _previewPlayer.setAudioContext(const AudioContext(
       android: AudioContextAndroid(
         contentType: AndroidContentType.music,
-        usageType: AndroidUsageType.alarm,
+        usageType: AndroidUsageType.media,
         audioFocus: AndroidAudioFocus.gainTransientMayDuck,
       ),
     ));

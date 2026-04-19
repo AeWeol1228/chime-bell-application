@@ -17,14 +17,15 @@ class AlarmService {
     await settings.init();
     
     final now = DateTime.now();
-    // Schedule for the next full hour
+    // Calculate the next full hour
     final nextHour = DateTime(now.year, now.month, now.day, now.hour + 1);
 
-    await AndroidAlarmManager.periodic(
-      const Duration(hours: 1),
+    await settings.log('[SCHEDULER] Requesting ONE-SHOT alarm. Current=$now, Target=$nextHour');
+
+    await AndroidAlarmManager.oneShotAt(
+      nextHour,
       _alarmId,
       BackgroundService.alarmCallback,
-      startAt: nextHour,
       exact: true,
       wakeup: true,
       allowWhileIdle: settings.allowWhileIdle,
@@ -33,6 +34,9 @@ class AlarmService {
   }
 
   static Future<void> cancelChime() async {
+    final settings = SettingsService();
+    await settings.init();
+    await settings.log('[SCHEDULER] Cancelling all alarms');
     await AndroidAlarmManager.cancel(_alarmId);
   }
 
@@ -42,7 +46,7 @@ class AlarmService {
     
     const int testId = 1;
     final testTime = DateTime.now().add(const Duration(minutes: 1));
-    print('[ChimeBell] Scheduling test alarm for: $testTime');
+    await settings.log('[SCHEDULER] Requesting 1-min test alarm. Target=$testTime');
     
     await AndroidAlarmManager.oneShot(
       const Duration(minutes: 1),
