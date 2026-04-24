@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../services/settings_service.dart';
 import '../services/alarm_service.dart';
 import '../build_info.dart';
 import 'debug_screen.dart';
+import 'settings_page.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsService settings;
@@ -16,22 +16,40 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  late String _language;
   late bool _chimeEnabled;
-  late bool _dndEnabled;
-  late int _dndStart;
-  late int _dndEnd;
-  late bool _excludeWeekends;
-  late bool _allowWhileIdle;
   late double _volume;
-  bool _isBatteryOptimized = true;
   int _debugTapCount = 0;
   final AudioPlayer _previewPlayer = AudioPlayer();
+
+  // Localization Data for Main Dashboard
+  final Map<String, Map<String, String>> _localizedValues = {
+    'en': {
+      'app_name': 'Time Chime',
+      'active': 'Chime is Active',
+      'disabled': 'Chime is Disabled',
+      'stop': 'STOP CHIME',
+      'start': 'START CHIME',
+      'volume': 'Quick Volume Control',
+    },
+    'ko': {
+      'app_name': '정시의 울림',
+      'active': '울릴 준비 중!',
+      'disabled': '비활성 상태에요',
+      'stop': '쉬게 하기',
+      'start': '깨우기',
+      'volume': '볼륨 조절',
+    }
+  };
+
+  String _t(String key) {
+    return _localizedValues[_language]?[key] ?? key;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
-    _checkBatteryOptimization();
     
     _previewPlayer.setAudioContext(const AudioContext(
       android: AudioContextAndroid(
@@ -43,20 +61,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _loadSettings() {
+    _language = widget.settings.language;
     _chimeEnabled = widget.settings.chimeEnabled;
-    _dndEnabled = widget.settings.dndEnabled;
-    _dndStart = widget.settings.dndStartHour;
-    _dndEnd = widget.settings.dndEndHour;
-    _excludeWeekends = widget.settings.excludeWeekends;
-    _allowWhileIdle = widget.settings.allowWhileIdle;
     _volume = widget.settings.volume;
-  }
-
-  Future<void> _checkBatteryOptimization() async {
-    final status = await Permission.ignoreBatteryOptimizations.status;
-    setState(() {
-      _isBatteryOptimized = !status.isGranted;
-    });
   }
 
   @override
@@ -69,14 +76,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _previewPlayer.setVolume(vol);
     if (_previewPlayer.state != PlayerState.playing) {
       await _previewPlayer.play(AssetSource('sounds/${widget.settings.selectedSound}'));
-    }
-  }
-
-  void _updateAlarm(bool enabled) {
-    if (enabled) {
-      AlarmService.scheduleChime();
-    } else {
-      AlarmService.cancelChime();
     }
   }
 
@@ -93,156 +92,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chime Bell'),
+        title: Text(_t('app_name')),
         centerTitle: true,
-        elevation: 2,
       ),
-      body: ListView(
+      body: Column(
         children: [
           _buildBuildInfo(),
-          _buildSectionTitle('General Settings'),
-          SwitchListTile(
-            title: const Text('Enable Hourly Chime'),
-            subtitle: const Text('Plays a sound every hour'),
-            secondary: const Icon(Icons.notifications_active),
-            value: _chimeEnabled,
-            onChanged: (val) {
-              setState(() => _chimeEnabled = val);
-              widget.settings.setChimeEnabled(val);
-              _updateAlarm(val);
-            },
-          ),
-          const Divider(),
-          _buildSectionTitle('Battery & Performance'),
-          SwitchListTile(
-            title: const Text('Exact Alarms in Doze Mode'),
-            subtitle: const Text('Ensure chime fires even when idle (uses more battery)'),
-            secondary: const Icon(Icons.bolt),
-            value: _allowWhileIdle,
-            onChanged: (val) {
-              setState(() => _allowWhileIdle = val);
-              widget.settings.setAllowWhileIdle(val);
-              if (_chimeEnabled) {
-                _updateAlarm(true); // Reschedule with new flag
-              }
-            },
-          ),
-          ListTile(
-            title: const Text('Battery Optimization'),
-            subtitle: Text(_isBatteryOptimized 
-                ? 'Currently Optimized (May delay chimes)' 
-                : 'Exempt from Optimization (Recommended)'),
-            leading: Icon(
-              _isBatteryOptimized ? Icons.battery_saver : Icons.battery_full,
-              color: _isBatteryOptimized ? Colors.orange : Colors.green,
-            ),
-            trailing: TextButton(
-              onPressed: () async {
-                if (_isBatteryOptimized) {
-                  await Permission.ignoreBatteryOptimizations.request();
-                } else {
-                  // Android doesn't allow un-requesting programmatically, 
-                  // but we can open settings
-                  await openAppSettings();
-                }
-                _checkBatteryOptimization();
-              },
-              child: Text(_isBatteryOptimized ? 'DISABLE' : 'SETTINGS'),
+          const SizedBox(height: 16),
+          // 커다란 설정 아이콘 버튼
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: IconButton(
+                icon: const Icon(Icons.settings, size: 36), // 크기 키움
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SettingsPage(settings: widget.settings),
+                    ),
+                  );
+                  setState(() {
+                    _loadSettings();
+                  });
+                },
+                color: Colors.blueGrey,
+              ),
             ),
           ),
-          const Divider(),
-          _buildSectionTitle('Do Not Disturb'),
-          SwitchListTile(
-            title: const Text('DND Mode'),
-            subtitle: const Text('Silence chime during specific hours'),
-            secondary: const Icon(Icons.do_not_disturb_on),
-            value: _dndEnabled,
-            onChanged: (val) {
-              setState(() => _dndEnabled = val);
-              widget.settings.setDndEnabled(val);
-            },
-          ),
-          if (_dndEnabled) ...[
-            _buildTimePicker('Start Hour', _dndStart, (val) {
-              setState(() => _dndStart = val);
-              widget.settings.setDndStartHour(val);
-            }),
-            _buildTimePicker('End Hour', _dndEnd, (val) {
-              setState(() => _dndEnd = val);
-              widget.settings.setDndEndHour(val);
-            }),
-          ],
-          const Divider(),
-          _buildSectionTitle('Schedule'),
-          SwitchListTile(
-            title: const Text('Exclude Weekends'),
-            subtitle: const Text('Disable chime on Sat and Sun'),
-            secondary: const Icon(Icons.calendar_month),
-            value: _excludeWeekends,
-            onChanged: (val) {
-              setState(() => _excludeWeekends = val);
-              widget.settings.setExcludeWeekends(val);
-            },
-          ),
-          const Divider(),
-          _buildSectionTitle('Volume'),
-          ListTile(
-            leading: const Icon(Icons.volume_up),
-            title: const Text('Chime Volume'),
-            subtitle: Slider(
-              value: _volume,
-              min: 0.0,
-              max: 1.0,
-              divisions: 20,
-              label: '${(_volume * 100).round()}%',
-              onChanged: (val) => setState(() => _volume = val),
-              onChangeEnd: (val) {
-                widget.settings.setVolume(val);
-                _playPreview(val);
-              },
-            ),
-            trailing: Text(
-              '${(_volume * 100).round()}%',
-              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          const Spacer(),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _chimeEnabled ? Icons.notifications_active : Icons.notifications_off,
+                  size: 100,
+                  color: _chimeEnabled ? Colors.blue : Colors.grey,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  _chimeEnabled ? _t('active') : _t('disabled'),
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 48),
+                ElevatedButton(
+                  onPressed: () {
+                    final newVal = !_chimeEnabled;
+                    setState(() => _chimeEnabled = newVal);
+                    widget.settings.setChimeEnabled(newVal);
+                    if (newVal) {
+                      AlarmService.scheduleChime();
+                    } else {
+                      AlarmService.cancelChime();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 20),
+                    backgroundColor: _chimeEnabled 
+                        ? Colors.grey.shade300 // 쉬게 하기: 차분한 회색
+                        : Colors.blue.shade400, // 깨우기: 밝은 파란색
+                    foregroundColor: _chimeEnabled 
+                        ? Colors.blueGrey.shade900 // 회색 버튼 위에는 진한 남색 글씨
+                        : Colors.white, // 파란 버튼 위에는 흰색 글씨
+                    elevation: 2, // 그림자 약간 낮춰서 차분하게
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: Text(
+                    _chimeEnabled ? _t('stop') : _t('start'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                Text(_t('volume')),
+                Slider(
+                  value: _volume,
+                  onChanged: (val) => setState(() => _volume = val),
+                  onChangeEnd: (val) {
+                    widget.settings.setVolume(val);
+                    _playPreview(val);
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimePicker(String label, int currentHour, ValueChanged<int> onChanged) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-      title: Text(label),
-      trailing: DropdownButton<int>(
-        value: currentHour,
-        items: List.generate(24, (i) => DropdownMenuItem(
-          value: i, 
-          child: Text('${i.toString().padLeft(2, '0')}:00')
-        )),
-        onChanged: (val) {
-          if (val != null) onChanged(val);
-        },
       ),
     );
   }
@@ -251,6 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return GestureDetector(
       onTap: _handleDebugTap,
       child: Container(
+        width: double.infinity,
         color: Colors.grey.withOpacity(0.05),
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(

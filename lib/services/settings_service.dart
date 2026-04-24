@@ -16,6 +16,7 @@ class SettingsService {
   static const String _keySelectedSound = 'selected_sound';
   static const String _keyVolume = 'volume';
   static const String _keyDebugLoggingEnabled = 'debug_logging_enabled';
+  static const String _keyLanguage = 'language';
 
   late SharedPreferences _prefs;
 
@@ -51,11 +52,14 @@ class SettingsService {
   bool get allowWhileIdle => _prefs.getBool(_keyAllowWhileIdle) ?? false;
   Future<void> setAllowWhileIdle(bool value) => _setBool(_keyAllowWhileIdle, value);
 
-  String get selectedSound => _prefs.getString(_keySelectedSound) ?? 'default_chime.mp3';
+  String get selectedSound => _prefs.getString(_keySelectedSound) ?? 'default_chime.m4a';
   Future<void> setSelectedSound(String value) => _setString(_keySelectedSound, value);
 
   double get volume => _prefs.getDouble(_keyVolume) ?? 1.0;
   Future<void> setVolume(double value) => _setDouble(_keyVolume, value);
+
+  String get language => _prefs.getString(_keyLanguage) ?? 'ko';
+  Future<void> setLanguage(String value) => _setString(_keyLanguage, value);
 
   bool get debugLoggingEnabled => _prefs.getBool(_keyDebugLoggingEnabled) ?? false;
   Future<void> setDebugLoggingEnabled(bool value) => _setBool(_keyDebugLoggingEnabled, value);
