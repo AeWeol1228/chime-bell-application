@@ -2,22 +2,27 @@ import 'dart:developer' as dev;
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'settings_service.dart';
-import 'alarm_service.dart';
+import 'alarm_scheduler.dart';
 
 @pragma('vm:entry-point')
-class BackgroundService {
+class AlarmExecutor {
   @pragma('vm:entry-point')
   static Future<void> alarmCallback() async {
     try {
+      // 1. Reschedule for next hour immediately to maintain the chain.
+      // We do this first so that even if SettingsService fails, the alarm chain continues.
+      try {
+        await AlarmScheduler.scheduleChime();
+      } catch (e) {
+        print('[ChimeBell] Critical Error during rescheduling: $e');
+      }
+
       final settings = SettingsService();
       await settings.init();
       await settings.reload();
       
       final now = DateTime.now();
       await settings.log('>>> [EXECUTOR] Isolate Triggered at $now');
-
-      // Reschedule for next hour immediately to maintain the chain with high priority
-      await AlarmService.scheduleChime();
       await settings.log('    - Next chime rescheduled.');
 
       if (!settings.chimeEnabled) {
@@ -39,7 +44,7 @@ class BackgroundService {
   }
 
   static bool _shouldSkip(SettingsService settings, DateTime now) {
-    if (settings.excludeWeekends) {
+    if (settings.excludeWeekends && !settings.weekendOverride) {
       if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
         return true;
       }
@@ -77,7 +82,6 @@ static Future<void> _playChime(SettingsService settings) async {
   );
 
   try {
-    await AudioPlayer.global.setAudioContext(audioContext);
     await player.setAudioContext(audioContext);
 
     await player.setVolume(settings.volume);

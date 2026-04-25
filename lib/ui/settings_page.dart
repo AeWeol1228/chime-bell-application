@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/settings_service.dart';
-import '../services/alarm_service.dart';
+import '../services/alarm_scheduler.dart';
 
 class SettingsPage extends StatefulWidget {
   final SettingsService settings;
@@ -185,7 +185,7 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() => _allowWhileIdle = val);
               widget.settings.setAllowWhileIdle(val);
               if (widget.settings.chimeEnabled) {
-                AlarmService.scheduleChime();
+                AlarmScheduler.scheduleChime();
               }
             },
           ),

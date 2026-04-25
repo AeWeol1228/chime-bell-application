@@ -12,6 +12,7 @@ class SettingsService {
   static const String _keyDndStartHour = 'dnd_start_hour';
   static const String _keyDndEndHour = 'dnd_end_hour';
   static const String _keyExcludeWeekends = 'exclude_weekends';
+  static const String _keyWeekendOverride = 'weekend_override';
   static const String _keyAllowWhileIdle = 'allow_while_idle';
   static const String _keySelectedSound = 'selected_sound';
   static const String _keyVolume = 'volume';
@@ -49,6 +50,9 @@ class SettingsService {
   bool get excludeWeekends => _prefs.getBool(_keyExcludeWeekends) ?? false;
   Future<void> setExcludeWeekends(bool value) => _setBool(_keyExcludeWeekends, value);
 
+  bool get weekendOverride => _prefs.getBool(_keyWeekendOverride) ?? false;
+  Future<void> setWeekendOverride(bool value) => _setBool(_keyWeekendOverride, value);
+
   bool get allowWhileIdle => _prefs.getBool(_keyAllowWhileIdle) ?? false;
   Future<void> setAllowWhileIdle(bool value) => _setBool(_keyAllowWhileIdle, value);
 
@@ -63,6 +67,28 @@ class SettingsService {
 
   bool get debugLoggingEnabled => _prefs.getBool(_keyDebugLoggingEnabled) ?? false;
   Future<void> setDebugLoggingEnabled(bool value) => _setBool(_keyDebugLoggingEnabled, value);
+
+  // Status Helpers
+  bool isWeekend() {
+    final now = DateTime.now();
+    return now.weekday == DateTime.saturday || now.weekday == DateTime.sunday;
+  }
+
+  bool isDndTime() {
+    if (!dndEnabled) return false;
+    final now = DateTime.now();
+    final current = now.hour;
+    return (dndStartHour <= dndEndHour) 
+        ? (current >= dndStartHour && current < dndEndHour) 
+        : (current >= dndStartHour || current < dndEndHour);
+  }
+
+  bool isEffectiveDisabled() {
+    if (!chimeEnabled) return true;
+    if (excludeWeekends && isWeekend() && !weekendOverride) return true;
+    if (isDndTime()) return true;
+    return false;
+  }
 
   Future<void> log(String message) async {
     if (!debugLoggingEnabled) return;

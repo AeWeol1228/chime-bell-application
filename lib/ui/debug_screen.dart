@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../services/alarm_service.dart';
+import '../services/alarm_scheduler.dart';
 import '../services/settings_service.dart';
 import '../build_info.dart';
 
@@ -133,7 +133,7 @@ class _DebugScreenState extends State<DebugScreen> {
             'Schedule 1-Min Test Alarm',
             Icons.timer,
             () async {
-              await AlarmService.scheduleTestChime();
+              await AlarmScheduler.scheduleTestChime();
               return 'Test alarm scheduled for 1 minute from now.';
             },
           ),
@@ -143,7 +143,7 @@ class _DebugScreenState extends State<DebugScreen> {
             'Cancel Current Alarm',
             Icons.cancel,
             () async {
-              await AlarmService.cancelChime();
+              await AlarmScheduler.cancelChime();
               return 'All hourly alarms cancelled.';
             },
           ),

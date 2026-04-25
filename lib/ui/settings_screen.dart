@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/settings_service.dart';
-import '../services/alarm_service.dart';
+import '../services/alarm_scheduler.dart';
 import '../build_info.dart';
 import 'debug_screen.dart';
 import 'settings_page.dart';
@@ -31,6 +31,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'stop': 'STOP CHIME',
       'start': 'START CHIME',
       'volume': 'Quick Volume Control',
+      'weekend_title': 'Weekend Chime',
+      'weekend_msg': 'Shall we keep the alarm on for this weekend?',
+      'weekend_override_msg': 'Alarm will ring this weekend.',
+      'dnd_title': 'DND Mode Active',
+      'dnd_msg': 'DND mode is currently on. You can change this in settings.',
+      'yes': 'Yes',
+      'no': 'No',
+      'ok': 'OK',
     },
     'ko': {
       'app_name': '정시의 울림',
@@ -39,12 +47,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'stop': '쉬게 하기',
       'start': '깨우기',
       'volume': '볼륨 조절',
+      'weekend_title': '주말 알람',
+      'weekend_msg': '이번 주는 주말에도 알람을 켜둘까요?',
+      'weekend_override_msg': '이번 주말은 알람이 울려요.',
+      'dnd_title': '방해 금지 모드',
+      'dnd_msg': '지금은 방해 금지 시간입니다. 설정창에서 변경할 수 있습니다.',
+      'yes': '네',
+      'no': '아니오',
+      'ok': '확인',
     }
   };
 
   String _t(String key) {
     return _localizedValues[_language]?[key] ?? key;
   }
+
+  bool get _isEffectiveDisabled => widget.settings.isEffectiveDisabled();
 
   @override
   void initState() {
@@ -90,8 +108,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _showWeekendDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_t('weekend_title')),
+        content: Text(_t('weekend_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(_t('no')),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _chimeEnabled = true);
+              await widget.settings.setChimeEnabled(true);
+              await widget.settings.setWeekendOverride(true);
+              AlarmScheduler.scheduleChime();
+            },
+            child: Text(_t('yes')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDndDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_t('dnd_title')),
+        content: Text(_t('dnd_msg')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(_t('ok')),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool effectiveDisabled = _isEffectiveDisabled;
+    final bool showWeekendOverrideInfo = widget.settings.excludeWeekends && 
+                                          widget.settings.isWeekend() && 
+                                          widget.settings.weekendOverride;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_t('app_name')),
@@ -129,40 +194,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _chimeEnabled ? Icons.notifications_active : Icons.notifications_off,
+                  !effectiveDisabled ? Icons.notifications_active : Icons.notifications_off,
                   size: 100,
-                  color: _chimeEnabled ? Colors.blue : Colors.grey,
+                  color: !effectiveDisabled ? Colors.blue : Colors.grey,
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  _chimeEnabled ? _t('active') : _t('disabled'),
+                  !effectiveDisabled ? _t('active') : _t('disabled'),
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
+                if (showWeekendOverrideInfo && !effectiveDisabled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      _t('weekend_override_msg'),
+                      style: TextStyle(
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 48),
                 ElevatedButton(
-                  onPressed: () {
-                    final newVal = !_chimeEnabled;
-                    setState(() => _chimeEnabled = newVal);
-                    widget.settings.setChimeEnabled(newVal);
-                    if (newVal) {
-                      AlarmService.scheduleChime();
+                  onPressed: () async {
+                    if (!effectiveDisabled) {
+                      // 현재 켜져 있는 상태 -> 끄기 (DND/주말 상관없이 강제 종료)
+                      setState(() => _chimeEnabled = false);
+                      await widget.settings.setChimeEnabled(false);
+                      await widget.settings.setWeekendOverride(false); // 오버라이드 초기화
+                      AlarmScheduler.cancelChime();
                     } else {
-                      AlarmService.cancelChime();
+                      // 현재 꺼져 있는 상태 -> 켜기 시도
+                      if (widget.settings.isDndTime()) {
+                        _showDndDialog();
+                        return;
+                      }
+                      
+                      if (widget.settings.excludeWeekends && widget.settings.isWeekend()) {
+                        _showWeekendDialog();
+                        return;
+                      }
+
+                      // 일반적인 켜기
+                      setState(() => _chimeEnabled = true);
+                      await widget.settings.setChimeEnabled(true);
+                      AlarmScheduler.scheduleChime();
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 20),
-                    backgroundColor: _chimeEnabled 
-                        ? Colors.grey.shade300 // 쉬게 하기: 차분한 회색
-                        : Colors.blue.shade400, // 깨우기: 밝은 파란색
-                    foregroundColor: _chimeEnabled 
-                        ? Colors.blueGrey.shade900 // 회색 버튼 위에는 진한 남색 글씨
-                        : Colors.white, // 파란 버튼 위에는 흰색 글씨
-                    elevation: 2, // 그림자 약간 낮춰서 차분하게
+                    backgroundColor: !effectiveDisabled 
+                        ? Colors.grey.shade300 
+                        : Colors.blue.shade400, 
+                    foregroundColor: !effectiveDisabled 
+                        ? Colors.blueGrey.shade900 
+                        : Colors.white, 
+                    elevation: 2, 
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
                   child: Text(
-                    _chimeEnabled ? _t('stop') : _t('start'),
+                    !effectiveDisabled ? _t('stop') : _t('start'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),

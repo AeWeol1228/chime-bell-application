@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/settings_service.dart';
-import 'services/alarm_service.dart';
+import 'services/alarm_scheduler.dart';
 import 'ui/settings_screen.dart';
 
 void main() async {
@@ -11,10 +11,10 @@ void main() async {
   await settingsService.init();
   
   // Initialize Alarm Service
-  await AlarmService.init();
+  await AlarmScheduler.init();
 
   if (settingsService.chimeEnabled) {
-    AlarmService.scheduleChime();
+    AlarmScheduler.scheduleChime();
   }
 
   runApp(const MyApp());

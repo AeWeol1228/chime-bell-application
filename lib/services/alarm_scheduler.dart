@@ -1,15 +1,15 @@
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'background_service.dart';
+import 'alarm_executor.dart';
 import 'settings_service.dart';
 
-class AlarmService {
+class AlarmScheduler {
   static const int _alarmId = 0;
   static bool _initialized = false;
 
   static Future<void> init() async {
     if (_initialized) return;
     _initialized = await AndroidAlarmManager.initialize();
-    print('[ChimeBell] AlarmService initialized: $_initialized');
+    print('[ChimeBell] AlarmScheduler initialized: $_initialized');
   }
 
   static Future<void> scheduleChime() async {
@@ -25,7 +25,7 @@ class AlarmService {
     await AndroidAlarmManager.oneShotAt(
       nextHour,
       _alarmId,
-      BackgroundService.alarmCallback,
+      AlarmExecutor.alarmCallback,
       exact: true,
       wakeup: true,
       allowWhileIdle: settings.allowWhileIdle,
@@ -51,7 +51,7 @@ class AlarmService {
     await AndroidAlarmManager.oneShot(
       const Duration(minutes: 1),
       testId,
-      BackgroundService.alarmCallback,
+      AlarmExecutor.alarmCallback,
       exact: true,
       wakeup: true,
       allowWhileIdle: settings.allowWhileIdle,
