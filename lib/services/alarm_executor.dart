@@ -64,9 +64,20 @@ class AlarmExecutor {
   }
 static Future<void> _playChime(SettingsService settings) async {
   final player = AudioPlayer();
-  final soundPath = 'sounds/${settings.selectedSound}';
+  final now = DateTime.now();
+  
+  // Use testHourOverride if set, otherwise use actual hour
+  final testHour = settings.testHourOverride;
+  final effectiveHour = (testHour != -1) ? testHour : now.hour;
+  
+  if (testHour != -1) {
+    await settings.log('    - TEST MODE: Using virtual hour $testHour');
+    // Clear the override so it doesn't affect the next real alarm
+    await settings.setTestHourOverride(-1);
+  }
 
-  await settings.log('    - Playing: $soundPath, Vol: ${settings.volume}');
+  final chimePath = 'sounds/${settings.selectedSound}';
+  String? voicePath = await settings.getVoiceFilePath(effectiveHour);
 
   // usageType: alarm provides high priority for Doze mode.
   // audioFocus: gainTransientMayDuck tells Android to lower other audio (duck) instead of pausing.
@@ -83,12 +94,28 @@ static Future<void> _playChime(SettingsService settings) async {
 
   try {
     await player.setAudioContext(audioContext);
-
     await player.setVolume(settings.volume);
-    await player.setSource(AssetSource(soundPath));
-    await player.resume();
 
+    // 1. Play Default Chime
+    await settings.log('    - Playing Chime: $chimePath');
+    await player.setSource(AssetSource(chimePath));
+    await player.resume();
+    // Wait for chime to finish (max 10s)
     await player.onPlayerComplete.first.timeout(const Duration(seconds: 10));
+
+    // 2. Play Voice if available
+    if (voicePath != null) {
+      final fullVoicePath = 'sounds/$voicePath';
+      await settings.log('    - Playing Voice: $fullVoicePath');
+      // A small delay between chime and voice for better transition
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      await player.setSource(AssetSource(fullVoicePath));
+      await player.resume();
+      // Wait for voice to finish (max 15s)
+      await player.onPlayerComplete.first.timeout(const Duration(seconds: 15));
+    }
+
   } catch (e) {
     await settings.log('    - Playback Error: $e');
   } finally {

@@ -14,6 +14,7 @@ class DebugScreen extends StatefulWidget {
 class _DebugScreenState extends State<DebugScreen> {
   final SettingsService _settings = SettingsService();
   late bool _loggingEnabled;
+  int _selectedTestHour = DateTime.now().hour;
 
   @override
   void initState() {
@@ -128,13 +129,30 @@ class _DebugScreenState extends State<DebugScreen> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Virtual Hour for Test'),
+            subtitle: const Text('Simulate specific hour for voice logic'),
+            trailing: DropdownButton<int>(
+              value: _selectedTestHour,
+              items: List.generate(24, (i) => DropdownMenuItem(
+                value: i,
+                child: Text('${i.toString().padLeft(2, '0')}:00'),
+              )),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedTestHour = val);
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
           _buildTestButton(
             context,
-            'Schedule 1-Min Test Alarm',
+            'Schedule 30-Sec Test Alarm',
             Icons.timer,
             () async {
+              await _settings.setTestHourOverride(_selectedTestHour);
               await AlarmScheduler.scheduleTestChime();
-              return 'Test alarm scheduled for 1 minute from now.';
+              return 'Test alarm scheduled for 30 seconds from now (Virtual Hour: $_selectedTestHour:00).';
             },
           ),
           const SizedBox(height: 16),

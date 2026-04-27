@@ -17,6 +17,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _dndEnabled;
   late int _dndStart;
   late int _dndEnd;
+  late bool _voiceOptionEnabled;
   late bool _excludeWeekends;
   late bool _allowWhileIdle;
   bool _isBatteryOptimized = true;
@@ -28,6 +29,9 @@ class _SettingsPageState extends State<SettingsPage> {
       'lang_section': 'Language',
       'lang_title': 'App Language',
       'lang_sub': 'Select Korean or English',
+      'voice_section': 'Voice Options',
+      'voice_title': 'Hourly Voice Notifications',
+      'voice_sub': 'Play voices after chime at specific hours (9, 10, 20, 21 + random)',
       'dnd_section': 'Do Not Disturb',
       'dnd_title': 'DND Mode',
       'dnd_sub': 'Silence chime during specific hours',
@@ -50,6 +54,9 @@ class _SettingsPageState extends State<SettingsPage> {
       'lang_section': '언어',
       'lang_title': '앱 언어',
       'lang_sub': '한국어 또는 English 선택',
+      'voice_section': '보이스 옵션',
+      'voice_title': '정시 보이스 알림',
+      'voice_sub': '일부 정시에 종소리 후 보이스 추가 재생 (9, 10, 20, 21시 + 랜덤)',
       'dnd_section': '방해 금지 모드 (DND)',
       'dnd_title': 'DND 모드 활성화',
       'dnd_sub': '지정한 시간 동안 종소리 끄기',
@@ -82,6 +89,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _loadSettings() {
     _language = widget.settings.language;
+    _voiceOptionEnabled = widget.settings.voiceOptionEnabled;
     _dndEnabled = widget.settings.dndEnabled;
     _dndStart = widget.settings.dndStartHour;
     _dndEnd = widget.settings.dndEndHour;
@@ -128,6 +136,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
+          ),
+          const Divider(height: 32, thickness: 1),
+
+          // 0-1. Voice Option
+          _buildSectionHeader(_t('voice_section')),
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            title: Text(_t('voice_title')),
+            subtitle: Text(_t('voice_sub')),
+            secondary: const Icon(Icons.record_voice_over),
+            value: _voiceOptionEnabled,
+            onChanged: (val) {
+              setState(() => _voiceOptionEnabled = val);
+              widget.settings.setVoiceOptionEnabled(val);
+            },
           ),
           const Divider(height: 32, thickness: 1),
 

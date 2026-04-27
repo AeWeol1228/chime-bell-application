@@ -50,6 +50,7 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "chime_bell_ico.png"
+  
   min_sdk_android: 21
 
 flutter_native_splash:
@@ -64,6 +65,7 @@ flutter:
 
   assets:
     - assets/sounds/
+    - assets/sounds/voices/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -90,3 +92,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

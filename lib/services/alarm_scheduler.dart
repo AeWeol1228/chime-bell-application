@@ -45,11 +45,11 @@ class AlarmScheduler {
     await settings.init();
     
     const int testId = 1;
-    final testTime = DateTime.now().add(const Duration(minutes: 1));
-    await settings.log('[SCHEDULER] Requesting 1-min test alarm. Target=$testTime');
+    final testTime = DateTime.now().add(const Duration(seconds: 30));
+    await settings.log('[SCHEDULER] Requesting 30-sec test alarm. Target=$testTime');
     
     await AndroidAlarmManager.oneShot(
-      const Duration(minutes: 1),
+      const Duration(seconds: 30),
       testId,
       AlarmExecutor.alarmCallback,
       exact: true,

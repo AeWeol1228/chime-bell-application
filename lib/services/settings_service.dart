@@ -8,6 +8,10 @@ class SettingsService {
   SettingsService._internal();
 
   static const String _keyChimeEnabled = 'chime_enabled';
+  static const String _keyVoiceOptionEnabled = 'voice_option_enabled';
+  static const String _keyDailyRandomVoiceHour = 'daily_random_voice_hour';
+  static const String _keyLastRandomDate = 'last_random_date';
+  static const String _keyTestHourOverride = 'test_hour_override';
   static const String _keyDndEnabled = 'dnd_enabled';
   static const String _keyDndStartHour = 'dnd_start_hour';
   static const String _keyDndEndHour = 'dnd_end_hour';
@@ -37,6 +41,15 @@ class SettingsService {
 
   bool get chimeEnabled => _prefs.getBool(_keyChimeEnabled) ?? true;
   Future<void> setChimeEnabled(bool value) => _setBool(_keyChimeEnabled, value);
+
+  bool get voiceOptionEnabled => _prefs.getBool(_keyVoiceOptionEnabled) ?? false;
+  Future<void> setVoiceOptionEnabled(bool value) => _setBool(_keyVoiceOptionEnabled, value);
+
+  int get dailyRandomVoiceHour => _prefs.getInt(_keyDailyRandomVoiceHour) ?? -1;
+  Future<void> setDailyRandomVoiceHour(int value) => _setInt(_keyDailyRandomVoiceHour, value);
+
+  String get lastRandomDate => _prefs.getString(_keyLastRandomDate) ?? '';
+  Future<void> setLastRandomDate(String value) => _setString(_keyLastRandomDate, value);
 
   bool get dndEnabled => _prefs.getBool(_keyDndEnabled) ?? false;
   Future<void> setDndEnabled(bool value) => _setBool(_keyDndEnabled, value);
@@ -68,6 +81,9 @@ class SettingsService {
   bool get debugLoggingEnabled => _prefs.getBool(_keyDebugLoggingEnabled) ?? false;
   Future<void> setDebugLoggingEnabled(bool value) => _setBool(_keyDebugLoggingEnabled, value);
 
+  int get testHourOverride => _prefs.getInt(_keyTestHourOverride) ?? -1;
+  Future<void> setTestHourOverride(int value) => _setInt(_keyTestHourOverride, value);
+
   // Status Helpers
   bool isWeekend() {
     final now = DateTime.now();
@@ -88,6 +104,62 @@ class SettingsService {
     if (excludeWeekends && isWeekend() && !weekendOverride) return true;
     if (isDndTime()) return true;
     return false;
+  }
+
+  /// Returns the random voice hour for today.
+  /// If not yet determined for today, it picks one from [1, 2, 7, 15, 16, 18].
+  Future<int> getOrUpdateDailyRandomVoiceHour() async {
+    final now = DateTime.now();
+    final todayStr = '${now.year}-${now.month}-${now.day}';
+    
+    if (lastRandomDate == todayStr && dailyRandomVoiceHour != -1) {
+      return dailyRandomVoiceHour;
+    }
+
+    // Pick new random hour
+    final randomPool = [1, 2, 7, 15, 16, 18];
+    randomPool.shuffle();
+    final chosenHour = randomPool.first;
+
+    await setLastRandomDate(todayStr);
+    await setDailyRandomVoiceHour(chosenHour);
+    
+    return chosenHour;
+  }
+
+  /// Returns a specific voice file path for the current hour if applicable.
+  /// Returns null if it's not a voice hour.
+  Future<String?> getVoiceFilePath(int hour) async {
+    if (!voiceOptionEnabled) return null;
+
+    final fixedHours = [9, 10, 20, 21];
+    final randomHour = await getOrUpdateDailyRandomVoiceHour();
+    
+    bool isVoiceHour = fixedHours.contains(hour) || hour == randomHour;
+    if (!isVoiceHour) return null;
+
+    final Map<int, List<String>> voiceFiles = {
+      1: ['01.mp3'],
+      2: ['02.mp3'],
+      7: ['07.mp3'],
+      9: ['09.mp3'],
+      10: ['10_1.mp3', '10_2.mp3'],
+      15: ['15_1.mp3', '15_2.mp3'],
+      16: ['16.mp3'],
+      18: ['18.mp3'],
+      20: ['20.mp3'],
+      21: ['21_1.mp3', '21_2.mp3', '21_3.mp3'],
+    };
+
+    final options = voiceFiles[hour];
+    if (options == null || options.isEmpty) return null;
+
+    if (options.length == 1) {
+      return 'voices/${options[0]}';
+    } else {
+      options.shuffle();
+      return 'voices/${options[0]}';
+    }
   }
 
   Future<void> log(String message) async {
