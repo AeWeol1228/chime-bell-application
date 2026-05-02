@@ -93,10 +93,14 @@ class SettingsService {
   bool isDndTime() {
     if (!dndEnabled) return false;
     final now = DateTime.now();
-    final current = now.hour;
+    return _isHourInDnd(now.hour);
+  }
+
+  bool _isHourInDnd(int hour) {
+    if (!dndEnabled) return false;
     return (dndStartHour <= dndEndHour) 
-        ? (current >= dndStartHour && current < dndEndHour) 
-        : (current >= dndStartHour || current < dndEndHour);
+        ? (hour >= dndStartHour && hour < dndEndHour) 
+        : (hour >= dndStartHour || hour < dndEndHour);
   }
 
   bool isEffectiveDisabled() {
@@ -107,7 +111,7 @@ class SettingsService {
   }
 
   /// Returns the random voice hour for today.
-  /// If not yet determined for today, it picks one from [1, 2, 7, 15, 16, 18].
+  /// It picks one from [1, 2, 7, 15, 16, 18], excluding hours in DND range.
   Future<int> getOrUpdateDailyRandomVoiceHour() async {
     final now = DateTime.now();
     final todayStr = '${now.year}-${now.month}-${now.day}';
@@ -118,8 +122,15 @@ class SettingsService {
 
     // Pick new random hour
     final randomPool = [1, 2, 7, 15, 16, 18];
-    randomPool.shuffle();
-    final chosenHour = randomPool.first;
+    
+    // Filter out hours that are currently in DND
+    final availableHours = randomPool.where((h) => !_isHourInDnd(h)).toList();
+    
+    // Fallback to full pool if all candidates are filtered out (safety)
+    final poolToUse = availableHours.isNotEmpty ? availableHours : randomPool;
+    
+    poolToUse.shuffle();
+    final chosenHour = poolToUse.first;
 
     await setLastRandomDate(todayStr);
     await setDailyRandomVoiceHour(chosenHour);

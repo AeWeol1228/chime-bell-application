@@ -45,7 +45,8 @@ class _SettingsPageState extends State<SettingsPage> {
       'batt_idle_sub': 'Ensure chime fires even when idle',
       'batt_opt': 'Battery Optimization',
       'batt_opt_on': 'Currently Optimized (May delay chimes)',
-      'batt_opt_off': 'Exempt from Optimization (Recommended)',
+      'batt_opt_off': 'Battery-Unrestricted',
+      'batt_opt_guide': 'If the alarm does not ring on time, please set Battery to Unrestricted and enable "Exact Alarms in Doze Mode".',
       'btn_disable': 'DISABLE',
       'btn_settings': 'SETTINGS',
     },
@@ -70,7 +71,8 @@ class _SettingsPageState extends State<SettingsPage> {
       'batt_idle_sub': '화면이 꺼져 있을 때도 정시 실행 보장',
       'batt_opt': '배터리 최적화 상태',
       'batt_opt_on': '최적화 중 (알람이 지연될 수 있음)',
-      'batt_opt_off': '최적화 예외 (권장 설정)',
+      'batt_opt_off': '배터리-제한 없음',
+      'batt_opt_guide': '정시 알람이 울리지 않는다면 배터리 제한 없음 설정과 DOZE 모드에서 정시 알람을 켜주세요.',
       'btn_disable': '최적화 끄기',
       'btn_settings': '설정 열기',
     }
@@ -198,6 +200,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // 3. Battery 관련 설정
           _buildSectionHeader(_t('batt_section')),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              _t('batt_opt_guide'),
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+          ),
           SwitchListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             title: Text(_t('batt_idle')),
